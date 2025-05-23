@@ -144,6 +144,37 @@ namespace TestApi.Controllers
             // Optionally, return the created post or its location
             return CreatedAtAction(nameof(GetPostById), new { id = post.Id }, post);
         }
+        [Authorize]
+        [HttpPut("posts/{id}")]
+        public async Task<IActionResult> UpdatePost([FromRoute] Guid id, [FromBody] UpdatePostDto updateDto)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized("User not found.");
+
+            var post = await _dbContext.Posts.FindAsync(id);
+            if (post == null)
+                return NotFound("Post not found.");
+
+            // Optional: Check if current user is the owner of the post
+            if (post.UserId != Guid.Parse(user.Id))
+                return Forbid("You are not allowed to update this post.");
+
+            // Update the post fields
+            post.Title = updateDto.Title;
+            post.Description = updateDto.Description;
+            post.ImageUrl = updateDto.ImageUrl;
+            post.Content = updateDto.Content;
+            post.CreatedAt = updateDto.CreatedAt;
+
+            // Optionally update other editable fields like UpdatedAt, if you track that
+            // post.UpdatedAt = DateTime.UtcNow;
+
+            _dbContext.Posts.Update(post);
+            await _dbContext.SaveChangesAsync();
+
+            return NoContent(); // 204 - successful but no response body
+        }
 
         [Authorize]
         [HttpDelete]
