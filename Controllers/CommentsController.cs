@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using TestApi.Data;
 using TestApi.DTOS;
 using TestApi.Models;
@@ -30,8 +33,8 @@ namespace TestApi.Controllers
             // Enforce only one level of reply
             if (parent.ParentCommentId != null)
                 return BadRequest("Cannot reply to a reply.");
-            if (parent.Replies != null)
-                return BadRequest("This comment already has a reply.");
+            //if (parent.Replies != null)
+            //    return BadRequest("This comment already has a reply.");
 
             // Create and save the reply comment
             var reply = new Comment
@@ -39,13 +42,22 @@ namespace TestApi.Controllers
                 PostId = parent.PostId,       // associate with same post
                 ParentCommentId = parent.Id,
                 Content = dto.Content,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UserId = dto.UserId
             };
             _dbContext.Comments.Add(reply);
             await _dbContext.SaveChangesAsync();
-
+            var replyDto = new CommentReplyDto
+            {
+                Id = reply.Id,
+                Content = reply.Content,
+                CreatedAt = reply.CreatedAt,
+                ParentCommentId = reply.ParentCommentId,
+                PostId = reply.PostId,
+                UserId = reply.UserId
+            };
             return CreatedAtAction(nameof(GetComment), "Comments",
-                                     new { id = reply.Id }, reply);
+                                     new { id = reply.Id }, replyDto);
         }
 
         [HttpPost("{postId}/comments")]
@@ -61,7 +73,9 @@ namespace TestApi.Controllers
             {
                 PostId = postId,
                 Content = dto.Content,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UserId = dto.UserId
+
             };
             _dbContext.Comments.Add(comment);
             await _dbContext.SaveChangesAsync();
@@ -70,16 +84,55 @@ namespace TestApi.Controllers
             {
                 Id = comment.Id,
                 Content = comment.Content,
-                CreatedAt = comment.CreatedAt
+                CreatedAt = comment.CreatedAt,
+                 UserId   = comment.UserId
             });
         }
          
         [HttpGet("comments/{id}")]
-        public async Task<ActionResult<Comment>> GetComment(int id)
+        public async Task<ActionResult<Comment>> GetComment([FromRoute] Guid id)
         {
             var comment = await _dbContext.Comments.FindAsync(id);
             if (comment == null) return NotFound();
             return comment;
+        }
+        [HttpPut("{commentId}")]
+        public async Task<IActionResult> UpdateComment(Guid commentId, [FromBody] UpdateCommentDto dto)
+        {
+            var comment = await _dbContext.Comments.FindAsync(commentId);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (comment == null) return NotFound();
+
+            if (comment.UserId != Guid.Parse( userId))
+                return Forbid(); // user not owner
+
+            comment.Content = dto.Content;
+            // update other allowed fields
+
+            await _dbContext.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [Authorize]
+        [HttpDelete("comments/{id}")]
+        public async Task<ActionResult<Comment>> DeleteComment([FromRoute] Guid id)
+        {
+            var comment = await _dbContext.Comments
+        .Include(c => c.Replies)
+        .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (comment == null) return NotFound();
+
+            // Delete replies first
+            if (comment.Replies != null && comment.Replies.Any())
+            {
+                _dbContext.Comments.RemoveRange(comment.Replies);
+            }
+
+            _dbContext.Comments.Remove(comment);
+            await _dbContext.SaveChangesAsync();
+
+            return NoContent();
         }
     }
 }

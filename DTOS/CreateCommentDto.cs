@@ -6,5 +6,6 @@ namespace TestApi.DTOS
     {
         [Required]
         public string Content { get; set; }
+        public Guid UserId { get; set; }
     }
 }

@@ -26,7 +26,7 @@ namespace TestApi.Controllers
         public async Task<IActionResult> GetAllPosts()
         {
 
-            var posts = await _dbContext.Posts.Include(p => p.Comments).ToListAsync();
+            var posts = await _dbContext.Posts.Include(p => p.Comments).ThenInclude(c => c.Replies).ToListAsync();
 
             if (posts == null)
             {
@@ -44,14 +44,7 @@ namespace TestApi.Controllers
         Likes = post.Likes,
         DisLikes = post.Dislikes,
         UserId = post.UserId,
-        Comments = post.Comments.Select(c => new CommentDto
-        {
-            Id = c.Id,
-            Content = c.Content,
-            CreatedAt = c.CreatedAt,
-            Likes = c.Likes,
-            DisLikes = c.Dislikes
-        }).ToList()
+        Comments = post.Comments.Where(c => c.ParentCommentId == null).Select(MapComment).ToList()
     }).ToList();
 
     return Ok(postDtos);
@@ -62,7 +55,7 @@ namespace TestApi.Controllers
         [Route("posts/{id}")]
         public async Task<IActionResult> GetPostById([FromRoute] Guid id)
         {
-            var posts = await _dbContext.Posts.Include(p => p.Comments).FirstOrDefaultAsync(p => p.Id == id);
+            var posts = await _dbContext.Posts.Include(p => p.Comments).ThenInclude(c => c.Replies).FirstOrDefaultAsync(p => p.Id == id);
             if (posts == null)
             {
                 return NotFound("No posts found.");
@@ -79,15 +72,10 @@ namespace TestApi.Controllers
                 Likes = posts.Likes,
                 DisLikes = posts.Dislikes,
                 UserId= posts.UserId,
-                Comments = posts.Comments.Select(c => new CommentDto
-                {
-                    Id = c.Id,
-                    Content = c.Content,
-                    CreatedAt = c.CreatedAt,
-                    Likes = c.Likes,
-                    DisLikes = c.Dislikes,
-                   
-                }).ToList()
+                Comments = posts.Comments
+                                .Where(c => c.ParentCommentId == null)
+                                .Select(MapComment)
+                                .ToList()
             };
 
             return Ok(postDto);
@@ -95,15 +83,38 @@ namespace TestApi.Controllers
 
         [HttpGet]
         [Route("posts/PostByUserId/{userId}")]
-        public async Task<IActionResult> GetPostByUserId([FromRoute] Guid userId)
+        public async Task<IActionResult> GetPostsByUserId([FromRoute] Guid userId)
         {
-            var posts = await _dbContext.Posts.FirstOrDefaultAsync(p => p.UserId == userId);
-            if (posts == null)
-            {
+            var posts = await _dbContext.Posts
+                .Where(p => p.UserId == userId)
+                .Include(p => p.Comments)
+                    .ThenInclude(c => c.Replies)
+                .ToListAsync();
+
+            if (!posts.Any())
                 return NotFound("No posts found.");
-            }
-            return Ok(posts);
+
+            var postDtos = posts.Select(post => new CreatePostDto
+            {
+                Id = post.Id,
+                Title = post.Title,
+                Description = post.Description,
+                ImageUrl = post.ImageUrl,
+                Content = post.Content,
+                CreatedAt = post.CreatedAt,
+                UserName = post.UserName,
+                Likes = post.Likes,
+                DisLikes = post.Dislikes,
+                UserId = post.UserId,
+                Comments = post.Comments
+                                 .Where(c => c.ParentCommentId == null)
+                                 .Select(MapComment)
+                                 .ToList()
+            }).ToList();
+
+            return Ok(postDtos);
         }
+
         [Authorize]
         [HttpPost]
         [Route("posts")]
@@ -153,6 +164,19 @@ namespace TestApi.Controllers
 
 
 
+        private CommentDto MapComment(Comment comment)
+        {
+            return new CommentDto
+            {
+                Id = comment.Id,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                Likes = comment.Likes,
+                DisLikes = comment.Dislikes,
+                UserId = comment.UserId,
+                Replies = comment.Replies?.Select(MapComment).ToList() ?? new List<CommentDto>()
+            };
+        }
 
 
     }
