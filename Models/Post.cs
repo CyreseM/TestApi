@@ -14,7 +14,8 @@
 
         public Guid UserId { get; set; }
         public AppUser User { get; set; }
-
+        public string UserName { get; set; }
+        
         public ICollection<Comment> Comments { get; set; }
 
 

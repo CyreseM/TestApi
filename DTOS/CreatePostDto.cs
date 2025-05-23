@@ -10,7 +10,12 @@ namespace TestApi.DTOS
         public string ImageUrl { get; set; }
         public string Content { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-     
+ 
+        public string UserName { get; internal set; }
 
+        public Guid UserId { get; internal set; }
+        public int Likes { get; internal set; } = 0;
+        public int DisLikes { get; internal set; } = 0;
+        public List<CommentDto> Comments { get; internal set; }
     }
 }
