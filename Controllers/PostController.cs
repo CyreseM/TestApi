@@ -194,7 +194,36 @@ namespace TestApi.Controllers
         }
 
 
+        [Authorize]
+         [HttpPatch("posts/{id}/reactions")]
+        public async Task<IActionResult> UpdateCommentReactions(Guid id, [FromBody] UpdateReactionsDto dto)
+                {
+                    var post = await _dbContext.Posts.FindAsync(id);
 
+                    if (post == null)
+                    {
+                        return NotFound("Post not found.");
+                    }
+
+                    if (dto.Likes.HasValue)
+                    {
+                        post.Likes = dto.Likes.Value;
+                    }
+
+                    if (dto.Dislikes.HasValue)
+                    {
+                        post.Dislikes = dto.Dislikes.Value;
+                    }
+
+                    await _dbContext.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        post.Id,
+                        post.Likes,
+                        post.Dislikes
+                    });
+                }
         private CommentDto MapComment(Comment comment)
         {
             return new CommentDto

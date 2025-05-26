@@ -135,5 +135,37 @@ namespace TestApi.Controllers
 
             return NoContent();
         }
+
+        [Authorize]
+        [HttpPatch("comments/{id}/reactions")]
+        public async Task<IActionResult> UpdateCommentReactions(Guid id, UpdateReactionsDto dto)
+        {
+            var comment = await _dbContext.Comments.FindAsync(id);
+
+            if (comment == null)
+            {
+                return NotFound("Comment not found.");
+            }
+
+            if (dto.Likes.HasValue)
+            {
+                comment.Likes = dto.Likes.Value;
+            }
+
+            if (dto.Dislikes.HasValue)
+            {
+                comment.Dislikes = dto.Dislikes.Value;
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                comment.Id,
+                comment.Likes,
+                comment.Dislikes
+            });
+        }
+
     }
 }
