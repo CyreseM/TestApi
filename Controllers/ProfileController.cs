@@ -59,8 +59,8 @@ namespace TestApi.Controllers
                 profile.Website = dto.Website;
                 profile.Location = dto.Location;
                 profile.TwitterHandle = dto.TwitterHandle;
-                profile.LinkedInHandle = dto. LinkedInHandle;
-                profile.CreatedAt = (DateTime)dto.CreatedAt;
+                profile.LinkedInHandle = dto.LinkedInHandle;
+                // CreatedAt should remain the original creation timestamp; do not overwrite on update
                 profile.DisplayName = dto.DisplayName;
                 _dbContext.Profiles.Update(profile);
             }
@@ -117,7 +117,7 @@ namespace TestApi.Controllers
             if (user == null)
                 return Unauthorized();
 
-            var userId = Guid.Parse(user.Id); // assuming AppUser.Id is a string of Guid format
+            var userId = user.Id;
 
             // Delete related posts
             var posts = _dbContext.Posts.Where(p => p.UserId == userId);

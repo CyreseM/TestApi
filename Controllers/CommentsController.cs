@@ -8,9 +8,17 @@ using TestApi.Data;
 using TestApi.DTOS;
 using TestApi.Models;
 
+// CommentsController manages top-level comments and one-level replies.
+// Next steps:
+// 1) Add per-user reactions (like/dislike) to avoid trusting client-provided counts
+// 2) Add pagination for comments on large posts
+// 3) Add moderation (reporting, hiding) and profanity filtering
+// 4) Consider allowing deeper nesting with a path or hierarchyid-like approach
 namespace TestApi.Controllers
 {
-    public class CommentsController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    public class CommentsController : ControllerBase
     {
         private readonly TestDbContext _dbContext;
 
@@ -20,7 +28,7 @@ namespace TestApi.Controllers
             _dbContext = dbContext;
         }
 
-
+        [Authorize]
         [HttpPost("{commentId}/reply")]
         public async Task<IActionResult> ReplyToComment(Guid commentId, [FromBody] CreateReplyDto dto)
         {
@@ -60,6 +68,7 @@ namespace TestApi.Controllers
                                      new { id = reply.Id }, replyDto);
         }
 
+        [Authorize]
         [HttpPost("{postId}/comments")]
         public async Task<IActionResult> CreateComment(Guid postId, [FromBody] CreateCommentDto dto)
         {
@@ -96,14 +105,15 @@ namespace TestApi.Controllers
             if (comment == null) return NotFound();
             return comment;
         }
+        [Authorize]
         [HttpPut("{commentId}")]
         public async Task<IActionResult> UpdateComment(Guid commentId, [FromBody] UpdateCommentDto dto)
         {
             var comment = await _dbContext.Comments.FindAsync(commentId);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (comment == null) return NotFound();
-
-            if (comment.UserId != Guid.Parse( userId))
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            if (comment.UserId != userId)
                 return Forbid(); // user not owner
 
             comment.Content = dto.Content;
@@ -147,24 +157,34 @@ namespace TestApi.Controllers
                 return NotFound("Comment not found.");
             }
 
-            if (dto.Likes.HasValue)
+            // Per-user reaction handling
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            // Interpret likes/dislikes to a ReactionState
+            ReactionState state = ReactionState.None;
+            if (dto.Likes.HasValue && dto.Likes.Value > 0) state = ReactionState.Like;
+            if (dto.Dislikes.HasValue && dto.Dislikes.Value > 0) state = ReactionState.Dislike;
+
+            var existing = await _dbContext.CommentReactions.FirstOrDefaultAsync(r => r.CommentId == id && r.UserId == userId);
+            if (existing == null)
             {
-                comment.Likes = dto.Likes.Value;
+                existing = new CommentReaction { Id = Guid.NewGuid(), CommentId = id, UserId = userId, State = state };
+                await _dbContext.CommentReactions.AddAsync(existing);
+            }
+            else
+            {
+                existing.State = state;
+                existing.UpdatedAt = DateTime.UtcNow;
             }
 
-            if (dto.Dislikes.HasValue)
-            {
-                comment.Dislikes = dto.Dislikes.Value;
-            }
+            // Recompute aggregate counts
+            comment.Likes = await _dbContext.CommentReactions.CountAsync(r => r.CommentId == id && r.State == ReactionState.Like);
+            comment.Dislikes = await _dbContext.CommentReactions.CountAsync(r => r.CommentId == id && r.State == ReactionState.Dislike);
 
             await _dbContext.SaveChangesAsync();
 
-            return Ok(new
-            {
-                comment.Id,
-                comment.Likes,
-                comment.Dislikes
-            });
+            return Ok(new { comment.Id, comment.Likes, comment.Dislikes, yourReaction = state });
         }
 
     }

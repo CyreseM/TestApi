@@ -1,4 +1,6 @@
 ﻿
+// CommentDto is used to return comments with nested replies.
+// Consider adding author display name, avatar, and per-user reaction state.
 namespace TestApi.DTOS
 {
     public class CommentDto
@@ -13,6 +15,6 @@ namespace TestApi.DTOS
         public int DisLikes { get; set; }
        
         public List<CommentDto> Replies { get; set; } = new();
-        public Guid UserId { get;  set; }
+        public string UserId { get;  set; }
     }
 }

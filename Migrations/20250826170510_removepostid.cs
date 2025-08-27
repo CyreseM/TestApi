@@ -5,7 +5,7 @@
 namespace TestApi.Migrations
 {
     /// <inheritdoc />
-    public partial class UserProfile : Migration
+    public partial class removepostid : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

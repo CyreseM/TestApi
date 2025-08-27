@@ -6,6 +6,6 @@
         public string Description { get; set; }
         public string ImageUrl { get; set; }
         public string Content { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        // CreatedAt is server-managed and not updatable
     }
 }

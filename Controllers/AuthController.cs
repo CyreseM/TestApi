@@ -8,6 +8,8 @@ using TestApi.DTOS;
 using TestApi.Models;
 using TestApi.Repositories;
 
+// AuthController handles registration, login via JWT cookies, logout, and current user info.
+// Next steps: add refresh tokens with rotation, password reset, email verification.
 namespace TestApi.Controllers
 {
     [Route("api/[controller]")]
@@ -29,9 +31,13 @@ namespace TestApi.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequestDto  loginrequestdto)
         {
             var user = await _userManager.FindByEmailAsync(loginrequestdto.Email);
+            if (user == null)
+            {
+                return Unauthorized("Invalid credentials.");
+            }
 
             var roles = await _userManager.GetRolesAsync(user);
-            if (user != null && await _userManager.CheckPasswordAsync(user, loginrequestdto.Password))
+            if (await _userManager.CheckPasswordAsync(user, loginrequestdto.Password))
             {
                 var token = _tokenRepository.CreateToken(user, roles.ToList());
 
@@ -73,9 +79,11 @@ namespace TestApi.Controllers
                             SameSite = SameSiteMode.Strict,
                             Expires = DateTime.UtcNow.AddMinutes(15)
                         });
-                        return Ok("User was registered! Please login.");
+                        return Ok("User was registered!");
                     }
                 }
+                // If no roles provided, still succeed without issuing token
+                return Ok("User was registered!");
             }
             return BadRequest("User registration failed.");
         }

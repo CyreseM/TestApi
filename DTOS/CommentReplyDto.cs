@@ -7,6 +7,6 @@
         public DateTime CreatedAt { get; set; }
         public Guid? ParentCommentId { get; set; }
         public Guid PostId { get; set; }
-        public Guid UserId { get; internal set; }
+        public string UserId { get; internal set; }
     }
 }

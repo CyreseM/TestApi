@@ -18,7 +18,7 @@ namespace TestApi.Models
 
       public Guid PostId { get; set; }
       public Post Post { get; set; }
-      public Guid UserId { get; set; }
+      public string UserId { get; set; }
       public AppUser User { get; set; }
 
       [InverseProperty(nameof(ParentComment))]

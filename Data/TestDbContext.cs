@@ -14,6 +14,9 @@ namespace TestApi.Data
         public DbSet<Comment> Comments { get; set; }
 
         public DbSet<UserProfile> Profiles { get; set; }
+        public DbSet<PostReaction> PostReactions { get; set; }
+        public DbSet<CommentReaction> CommentReactions { get; set; }
+        public DbSet<Bookmark> Bookmarks { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -42,7 +45,29 @@ namespace TestApi.Data
             modelBuilder.Entity<Comment>()
                 .HasOne(c => c.ParentComment)
                 .WithMany(c => c.Replies)
-                .HasForeignKey(c => c.ParentCommentId);
+                .HasForeignKey(c => c.ParentCommentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Comment>()
+                .HasOne(c => c.Post)
+                .WithMany(p => p.Comments)
+                .HasForeignKey(c => c.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Ensure 1 reaction per user per post
+            modelBuilder.Entity<PostReaction>()
+                .HasIndex(r => new { r.PostId, r.UserId })
+                .IsUnique();
+
+            // Ensure 1 reaction per user per comment
+            modelBuilder.Entity<CommentReaction>()
+                .HasIndex(r => new { r.CommentId, r.UserId })
+                .IsUnique();
+
+            // Ensure 1 bookmark per user per post
+            modelBuilder.Entity<Bookmark>()
+                .HasIndex(b => new { b.PostId, b.UserId })
+                .IsUnique();
 
         }
     }
